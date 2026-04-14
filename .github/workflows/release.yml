@@ -1,0 +1,61 @@
+name: Release mod package
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build release zip from committed DLL
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = "${{ github.ref_name }}"
+          if ([string]::IsNullOrWhiteSpace($version)) { $version = "manual" }
+
+          $dll = "Source/bin/TelemachusTelemetryExtended.dll"
+          if (-not (Test-Path $dll)) {
+            throw "Missing $dll. Commit an updated DLL before tagging a release."
+          }
+
+          $root = "package/TelemachusTelemetryExtended"
+          $plugins = Join-Path $root "GameData/TelemachusTelemetryExtended/Plugins"
+          New-Item -ItemType Directory -Force -Path $plugins | Out-Null
+
+          Copy-Item $dll (Join-Path $plugins "TelemachusTelemetryExtended.dll") -Force
+          Copy-Item "README.md" (Join-Path $root "README.md") -Force
+          Copy-Item "openapi.yaml" (Join-Path $root "openapi.yaml") -Force
+
+          $zipName = "TelemachusTelemetryExtended-$version.zip"
+          if (Test-Path $zipName) { Remove-Item $zipName -Force }
+          Compress-Archive -Path "$root/*" -DestinationPath $zipName -CompressionLevel Optimal
+
+          $hash = (Get-FileHash -Algorithm SHA256 $zipName).Hash.ToLowerInvariant()
+          "$hash  $zipName" | Out-File -FilePath "$zipName.sha256" -Encoding ascii
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-package-${{ github.run_id }}
+          path: |
+            TelemachusTelemetryExtended-*.zip
+            TelemachusTelemetryExtended-*.zip.sha256
+
+      - name: Publish GitHub Release assets
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            TelemachusTelemetryExtended-*.zip
+            TelemachusTelemetryExtended-*.zip.sha256

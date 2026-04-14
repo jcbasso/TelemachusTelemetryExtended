@@ -1,4 +1,5 @@
-Source/bin/
+Source/bin/*
+!Source/bin/TelemachusTelemetryExtended.dll
 release/
 *.user
 *.suo

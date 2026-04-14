@@ -5,8 +5,33 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Test-KspRoot {
+    param([string]$Path)
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+    return (Test-Path (Join-Path $Path "KSP_x64_Data\Managed\Assembly-CSharp.dll")) -and
+           (Test-Path (Join-Path $Path "GameData\Telemachus\Plugins\Telemachus.dll"))
+}
+
+if ([string]::IsNullOrWhiteSpace($KspRoot) -and -not [string]::IsNullOrWhiteSpace($env:KSP_ROOT) -and (Test-KspRoot $env:KSP_ROOT)) {
+    $KspRoot = $env:KSP_ROOT
+}
+
 if ([string]::IsNullOrWhiteSpace($KspRoot)) {
-    $KspRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
+    $candidateFromRepo = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
+    if (Test-KspRoot $candidateFromRepo) {
+        $KspRoot = $candidateFromRepo
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($KspRoot)) {
+    $steamCandidate = "D:\Games\steamapps\common\Kerbal Space Program"
+    if (Test-KspRoot $steamCandidate) {
+        $KspRoot = $steamCandidate
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($KspRoot) -or -not (Test-KspRoot $KspRoot)) {
+    throw "Could not find a valid KSP root. Pass -KspRoot '<path>' or set KSP_ROOT env var."
 }
 
 $source = Join-Path $KspRoot "PluginData\TelemachusTelemetryExtended\Source\TelemachusTelemetryExtended.cs"
@@ -32,6 +57,8 @@ if ($roslynCandidates.Count -eq 0) {
 }
 
 $roslynCsc = $roslynCandidates[0].FullName
+Write-Host "Using KSP root: $KspRoot"
+Write-Host "Using compiler: $roslynCsc"
 
 $refs = @(
     (Join-Path $kspRoot "KSP_x64_Data\Managed\Assembly-CSharp.dll"),

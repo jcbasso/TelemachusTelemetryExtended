@@ -118,6 +118,38 @@ During documentation update, these endpoints were queried successfully in a live
 
 ## Build
 
+Quick build (from repo root):
+
+```
+.\build.ps1
+```
+
+or (double-click friendly):
+
+```
+build.cmd
+```
+
+This writes:
+
+- `Source\bin\TelemachusTelemetryExtended.dll` (always)
+- `GameData\TelemachusTelemetryExtended\Plugins\TelemachusTelemetryExtended.dll` (unless `-NoDeploy`)
+
+KSP root lookup order:
+1. `-KspRoot` argument
+2. `KSP_ROOT` environment variable
+3. Auto-detect from current repo location
+4. Fallback: `D:\Games\steamapps\common\Kerbal Space Program`
+
+Examples:
+
+```
+.\build.ps1 -NoDeploy
+.\build.ps1 -KspRoot "D:\Games\steamapps\common\Kerbal Space Program"
+```
+
+Advanced (direct source script):
+
 Run:
 
 ```
@@ -151,7 +183,38 @@ release\TelemachusTelemetryExtended\
 ## Git-ready notes
 
 - Recommended repository root: `PluginData\TelemachusTelemetryExtended`
-- Build artifacts are ignored via `.gitignore` (`Source\bin\`, `release\`).
+- Build artifacts are ignored via `.gitignore` (`release\`, editor files).  
+  Only `Source\bin\TelemachusTelemetryExtended.dll` is intentionally tracked for release packaging.
+
+## GitHub release automation
+
+This repo includes a GitHub Actions workflow:
+
+- `.github/workflows/release.yml`
+
+What it does:
+
+- Trigger on tag push `v*` (for example `v1.0.0`) or manual run
+- Package a CKAN/KSP-style zip with:
+  - `GameData\TelemachusTelemetryExtended\Plugins\TelemachusTelemetryExtended.dll`
+  - `README.md`
+  - `openapi.yaml`
+- Upload `.zip` + `.zip.sha256` as workflow artifacts
+- On tagged runs, also attach them to the GitHub Release
+
+Important:
+
+- The workflow packages the **committed** `Source/bin/TelemachusTelemetryExtended.dll`.
+- Before tagging, rebuild locally and commit the updated DLL.
+
+Tag release example:
+
+```
+git add .
+git commit -m "Release v1.0.0"
+git tag v1.0.0
+git push origin main --tags
+```
 
 If KSP is running and the output DLL is locked, the script writes a staging build to:
 
