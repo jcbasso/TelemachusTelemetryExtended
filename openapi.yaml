@@ -1,13 +1,13 @@
 openapi: 3.1.0
 info:
   title: TelemachusTelemetryExtended API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     Logical API specification for TelemachusTelemetryExtended endpoints.
 
     Runtime transport is Telemachus datalink (`/telemachus/datalink`) where values are requested
-    as query aliases (`alias=extended.*`) and most complex payloads are returned as JSON-encoded strings.
-    This spec documents decoded payload shapes per endpoint.
+    as query aliases (`alias=extended.*`).
+    Complex `extended.*` payloads are returned as direct objects/arrays in datalink responses.
 servers:
   - url: http://127.0.0.1:8085
     description: Local Telemachus default server

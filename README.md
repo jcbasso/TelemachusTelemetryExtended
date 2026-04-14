@@ -14,19 +14,19 @@ Custom Telemachus plugin that adds contracts telemetry and `[x] Science!` teleme
 - `extended.contracts.acceptedCount`  
   Number of accepted contracts.
 - `extended.contracts.accepted`  
-  Full accepted-contract list as a JSON array, or a single item when called as `extended.contracts.accepted[index]` (returned as a JSON string value by Telemachus datalink).
+  Full accepted-contract list as a JSON array, or a single item when called as `extended.contracts.accepted[index]` (returned as a direct object/array in Telemachus datalink).
 - `extended.contracts.byState`  
   Full current-contract listing grouped by state, with stable keys:
-  `generated`, `offered`, `offerExpired`, `declined`, `cancelled`, `active`, `completed`, `deadlineExpired`, `failed`, `withdrawn`, `other` (returned as a JSON string value by Telemachus datalink).
+  `generated`, `offered`, `offerExpired`, `declined`, `cancelled`, `active`, `completed`, `deadlineExpired`, `failed`, `withdrawn`, `other` (returned as a direct object in Telemachus datalink).
 
 ### Extended [x] Science integration
 
 - `extended.science.current`  
-  Current filtered science list (based on `[x] Science!` checklist filter/window state when available, returned as a JSON string value by Telemachus datalink).
+  Current filtered science list (based on `[x] Science!` checklist filter/window state when available, returned as a direct object in Telemachus datalink).
 - `extended.science.global`  
-  Full global science list from `[x] Science!` (`AllScienceInstances`, returned as a JSON string value by Telemachus datalink).
+  Full global science list from `[x] Science!` (`AllScienceInstances`, returned as a direct object in Telemachus datalink).
 - `extended.science.summary`  
-  Quick counts/progress for current/global lists (returned as a JSON string value by Telemachus datalink).
+  Quick counts/progress for current/global lists (returned as a direct object in Telemachus datalink).
 
 Each accepted contract entry includes:
 - Contract identity and labels (`id`, `guid`, `title`, `synopsys`, `notes`)
@@ -52,17 +52,13 @@ Telemachus `/telemachus/datalink` always returns an object with your alias on th
 { "alias": "<value>" }
 ```
 
-For most plugin keys here, `<value>` is a **JSON-encoded string**, so consumers should parse twice:
+For these plugin keys, `<value>` is already a structured object/array (no double-parse required).
 
-1. parse outer datalink response
-2. parse alias value as JSON
-
-### zsh + jq (double parse)
+### zsh + jq
 
 ```zsh
 curl -s "http://127.0.0.1:8085/telemachus/datalink?sCurrent=extended.science.current" \
-| jq -r '.sCurrent | fromjson' \
-| jq
+| jq '.sCurrent'
 ```
 
 ### Concrete response shapes
@@ -98,11 +94,7 @@ Since datalink is alias-based, model raw transport as:
 - query params are free-form aliases (`<alias>=<telemachus_key>`)
 - response is `object` with arbitrary properties (`additionalProperties`)
 
-For each alias key you standardize (for example `sCurrent`), define the property as:
-- type: `string` (outer datalink response)
-- description: "JSON-encoded payload for `extended.science.current`"
-
-Then define the decoded payload schema separately (`XScienceCurrentPayload`, `ContractsByStatePayload`, etc.) and document that clients must `JSON.parse` the alias value.
+For each alias key you standardize (for example `sCurrent`), define the property as the direct schema (`object`/`array`) for that endpoint payload.
 
 ## Live tested samples
 
@@ -115,6 +107,15 @@ During documentation update, these endpoints were queried successfully in a live
 - `extended.science.current`
 - `extended.science.global`
 - `extended.science.summary`
+
+Latest runtime check confirms direct datalink value types:
+
+- `extended.contracts.acceptedCount` -> number
+- `extended.contracts.accepted` -> array
+- `extended.contracts.byState` -> object
+- `extended.science.current` -> object
+- `extended.science.global` -> object
+- `extended.science.summary` -> object
 
 ## Build
 

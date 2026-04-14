@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
-using System.Text;
 using Contracts;
 using Telemachus;
 using UnityEngine;
@@ -108,20 +107,13 @@ namespace TelemachusTelemetryExtended
         private object GetAcceptedContractsJson()
         {
             var contracts = GetAcceptedContracts();
-            var sb = new StringBuilder();
-            sb.Append('[');
+            var result = new List<object>(contracts.Count);
             for (var i = 0; i < contracts.Count; i++)
             {
-                if (i > 0)
-                {
-                    sb.Append(',');
-                }
-
-                sb.Append(ContractToJson(contracts[i]));
+                result.Add(ContractToObject(contracts[i]));
             }
 
-            sb.Append(']');
-            return sb.ToString();
+            return result;
         }
 
         private object GetAcceptedContractsJsonOrByIndex(string[] args)
@@ -139,10 +131,10 @@ namespace TelemachusTelemetryExtended
             var contracts = GetAcceptedContracts();
             if (index < 0 || index >= contracts.Count)
             {
-                return "{}";
+                return new Dictionary<string, object>();
             }
 
-            return ContractToJson(contracts[index]);
+            return ContractToObject(contracts[index]);
         }
 
         private static List<Contract> GetAcceptedContracts()
@@ -235,35 +227,20 @@ namespace TelemachusTelemetryExtended
                 "other"
             };
 
-            var sb = new StringBuilder();
-            sb.Append('{');
-            var firstGroup = true;
+            var result = new Dictionary<string, object>();
             foreach (var key in keyOrder)
             {
-                if (!firstGroup)
-                {
-                    sb.Append(',');
-                }
-
-                firstGroup = false;
-                sb.Append('"').Append(key).Append('"').Append(':').Append('[');
-
                 var items = grouped[key];
+                var serializedItems = new List<object>(items.Count);
                 for (var i = 0; i < items.Count; i++)
                 {
-                    if (i > 0)
-                    {
-                        sb.Append(',');
-                    }
-
-                    sb.Append(ContractToJson(items[i]));
+                    serializedItems.Add(ContractToObject(items[i]));
                 }
 
-                sb.Append(']');
+                result[key] = serializedItems;
             }
 
-            sb.Append('}');
-            return sb.ToString();
+            return result;
         }
 
         private static string StateBucket(Contract.State state)
@@ -295,23 +272,9 @@ namespace TelemachusTelemetryExtended
             }
         }
 
-        private static string ContractToJson(Contract contract)
+        private static Dictionary<string, object> ContractToObject(Contract contract)
         {
-            var sb = new StringBuilder();
-            sb.Append('{');
-            sb.Append("\"id\":").Append(contract.ContractID.ToString(CultureInfo.InvariantCulture)).Append(',');
-            sb.Append("\"guid\":\"").Append(Escape(contract.ContractGuid.ToString("N"))).Append("\",");
-            sb.Append("\"title\":\"").Append(Escape(contract.Title)).Append("\",");
-            sb.Append("\"synopsys\":\"").Append(Escape(contract.Synopsys)).Append("\",");
-            sb.Append("\"notes\":\"").Append(Escape(contract.Notes)).Append("\",");
-            sb.Append("\"state\":\"").Append(Escape(contract.ContractState.ToString())).Append("\",");
-            sb.Append("\"localizedState\":\"").Append(Escape(contract.LocalizedContractState)).Append("\",");
-            sb.Append("\"prestige\":\"").Append(Escape(contract.Prestige.ToString())).Append("\",");
-            sb.Append("\"dateAccepted\":").Append(contract.DateAccepted.ToString("0.###", CultureInfo.InvariantCulture)).Append(',');
-            sb.Append("\"dateDeadline\":").Append(contract.DateDeadline.ToString("0.###", CultureInfo.InvariantCulture)).Append(',');
-            sb.Append("\"parameters\":[");
-
-            var firstParam = true;
+            var parameters = new List<object>();
             foreach (var parameter in contract.AllParameters)
             {
                 if (parameter == null || !parameter.Enabled)
@@ -319,67 +282,83 @@ namespace TelemachusTelemetryExtended
                     continue;
                 }
 
-                if (!firstParam)
+                parameters.Add(new Dictionary<string, object>
                 {
-                    sb.Append(',');
-                }
-
-                firstParam = false;
-                sb.Append('{');
-                sb.Append("\"id\":\"").Append(Escape(parameter.ID)).Append("\",");
-                sb.Append("\"title\":\"").Append(Escape(parameter.Title)).Append("\",");
-                sb.Append("\"notes\":\"").Append(Escape(parameter.Notes)).Append("\",");
-                sb.Append("\"state\":\"").Append(Escape(parameter.State.ToString())).Append("\",");
-                sb.Append("\"optional\":").Append(parameter.Optional ? "true" : "false");
-                sb.Append('}');
+                    { "id", parameter.ID ?? string.Empty },
+                    { "title", parameter.Title ?? string.Empty },
+                    { "notes", parameter.Notes ?? string.Empty },
+                    { "state", parameter.State.ToString() },
+                    { "optional", parameter.Optional }
+                });
             }
 
-            sb.Append(']');
-            sb.Append('}');
-            return sb.ToString();
+            return new Dictionary<string, object>
+            {
+                { "id", contract.ContractID },
+                { "guid", contract.ContractGuid.ToString("N") },
+                { "title", contract.Title ?? string.Empty },
+                { "synopsys", contract.Synopsys ?? string.Empty },
+                { "notes", contract.Notes ?? string.Empty },
+                { "state", contract.ContractState.ToString() },
+                { "localizedState", contract.LocalizedContractState ?? string.Empty },
+                { "prestige", contract.Prestige.ToString() },
+                { "dateAccepted", contract.DateAccepted },
+                { "dateDeadline", contract.DateDeadline },
+                { "parameters", parameters }
+            };
         }
 
         private object GetXScienceCurrentJson()
         {
             if (!TryGetXScienceInstances(out var context, out var globalInstances))
             {
-                return "{\"available\":false,\"items\":[]}";
+                return new Dictionary<string, object> { { "available", false }, { "items", new List<object>() } };
             }
 
             var currentInstances = TryGetXScienceCurrentInstances(context) ?? globalInstances;
-            return "{\"available\":true,\"items\":" + ScienceInstancesToJson(currentInstances) + "}";
+            return new Dictionary<string, object> { { "available", true }, { "items", ScienceInstancesToJson(currentInstances) } };
         }
 
         private object GetXScienceGlobalJson()
         {
             if (!TryGetXScienceInstances(out _, out var globalInstances))
             {
-                return "{\"available\":false,\"items\":[]}";
+                return new Dictionary<string, object> { { "available", false }, { "items", new List<object>() } };
             }
 
-            return "{\"available\":true,\"items\":" + ScienceInstancesToJson(globalInstances) + "}";
+            return new Dictionary<string, object> { { "available", true }, { "items", ScienceInstancesToJson(globalInstances) } };
         }
 
         private object GetXScienceSummaryJson()
         {
             if (!TryGetXScienceInstances(out var context, out var globalInstances))
             {
-                return "{\"available\":false,\"globalCount\":0,\"globalComplete\":0,\"currentCount\":0,\"currentComplete\":0,\"globalProgress\":0,\"currentProgress\":0}";
+                return new Dictionary<string, object>
+                {
+                    { "available", false },
+                    { "globalCount", 0 },
+                    { "globalComplete", 0 },
+                    { "currentCount", 0 },
+                    { "currentComplete", 0 },
+                    { "globalProgress", 0.0 },
+                    { "currentProgress", 0.0 }
+                };
             }
 
             var currentInstances = TryGetXScienceCurrentInstances(context) ?? globalInstances;
             BuildScienceStats(globalInstances, out var globalComplete, out var globalProgress);
             BuildScienceStats(currentInstances, out var currentComplete, out var currentProgress);
 
-            return "{"
-                + "\"available\":true,"
-                + "\"globalCount\":" + globalInstances.Count.ToString(CultureInfo.InvariantCulture) + ","
-                + "\"globalComplete\":" + globalComplete.ToString(CultureInfo.InvariantCulture) + ","
-                + "\"currentCount\":" + currentInstances.Count.ToString(CultureInfo.InvariantCulture) + ","
-                + "\"currentComplete\":" + currentComplete.ToString(CultureInfo.InvariantCulture) + ","
-                + "\"globalProgress\":" + globalProgress.ToString("0.###", CultureInfo.InvariantCulture) + ","
-                + "\"currentProgress\":" + currentProgress.ToString("0.###", CultureInfo.InvariantCulture)
-                + "}";
+            return new Dictionary<string, object>
+            {
+                { "available", true },
+                { "globalCount", globalInstances.Count },
+                { "globalComplete", globalComplete },
+                { "currentCount", currentInstances.Count },
+                { "currentComplete", currentComplete },
+                { "globalProgress", globalProgress },
+                { "currentProgress", currentProgress }
+            };
         }
 
         private static void BuildScienceStats(List<object> instances, out int completeCount, out double progress)
@@ -578,28 +557,21 @@ namespace TelemachusTelemetryExtended
             return null;
         }
 
-        private static string ScienceInstancesToJson(List<object> instances)
+        private static List<object> ScienceInstancesToJson(List<object> instances)
         {
-            var sb = new StringBuilder();
-            sb.Append('[');
+            var result = new List<object>();
             if (instances != null)
             {
                 for (var i = 0; i < instances.Count; i++)
                 {
-                    if (i > 0)
-                    {
-                        sb.Append(',');
-                    }
-
-                    sb.Append(ScienceInstanceToJson(instances[i]));
+                    result.Add(ScienceInstanceToJson(instances[i]));
                 }
             }
 
-            sb.Append(']');
-            return sb.ToString();
+            return result;
         }
 
-        private static string ScienceInstanceToJson(object instance)
+        private static Dictionary<string, object> ScienceInstanceToJson(object instance)
         {
             var situation = ReadProperty(instance, "Situation");
             var bodyObj = situation != null ? ReadProperty(situation, "Body") : null;
@@ -608,26 +580,25 @@ namespace TelemachusTelemetryExtended
             var totalScience = ReadFloatProperty(instance, "TotalScience");
             var progress = totalScience > 0f ? Math.Min(1f, completedScience / totalScience) : (ReadBoolProperty(instance, "IsComplete") ? 1f : 0f);
 
-            var sb = new StringBuilder();
-            sb.Append('{');
-            sb.Append("\"id\":\"").Append(Escape(ReadStringProperty(instance, "Id"))).Append("\",");
-            sb.Append("\"description\":\"").Append(Escape(ReadStringProperty(instance, "Description"))).Append("\",");
-            sb.Append("\"shortDescription\":\"").Append(Escape(ReadStringProperty(instance, "ShortDescription"))).Append("\",");
-            sb.Append("\"experimentSituation\":\"").Append(Escape(ReadProperty(situation, "ExperimentSituation")?.ToString())).Append("\",");
-            sb.Append("\"situationDescription\":\"").Append(Escape(ReadStringProperty(situation, "Description"))).Append("\",");
-            sb.Append("\"body\":\"").Append(Escape(ReadProperty(bodyObj, "Name")?.ToString() ?? bodyObj?.ToString())).Append("\",");
-            sb.Append("\"biome\":\"").Append(Escape(ReadStringProperty(situation, "Biome"))).Append("\",");
-            sb.Append("\"subBiome\":\"").Append(Escape(ReadStringProperty(situation, "SubBiome"))).Append("\",");
-            sb.Append("\"completedScience\":").Append(completedScience.ToString("0.###", CultureInfo.InvariantCulture)).Append(",");
-            sb.Append("\"totalScience\":").Append(totalScience.ToString("0.###", CultureInfo.InvariantCulture)).Append(",");
-            sb.Append("\"progress\":").Append(progress.ToString("0.###", CultureInfo.InvariantCulture)).Append(",");
-            sb.Append("\"isComplete\":").Append(ReadBoolProperty(instance, "IsComplete") ? "true" : "false").Append(",");
-            sb.Append("\"isUnlocked\":").Append(ReadBoolProperty(instance, "IsUnlocked") ? "true" : "false").Append(",");
-            sb.Append("\"isCollected\":").Append(ReadBoolProperty(instance, "IsCollected") ? "true" : "false").Append(",");
-            sb.Append("\"onboardScience\":").Append(ReadFloatProperty(instance, "OnboardScience").ToString("0.###", CultureInfo.InvariantCulture)).Append(",");
-            sb.Append("\"rerunnable\":").Append(ReadBoolProperty(instance, "Rerunnable") ? "true" : "false");
-            sb.Append('}');
-            return sb.ToString();
+            return new Dictionary<string, object>
+            {
+                { "id", ReadStringProperty(instance, "Id") },
+                { "description", ReadStringProperty(instance, "Description") },
+                { "shortDescription", ReadStringProperty(instance, "ShortDescription") },
+                { "experimentSituation", ReadProperty(situation, "ExperimentSituation")?.ToString() ?? string.Empty },
+                { "situationDescription", ReadStringProperty(situation, "Description") },
+                { "body", ReadProperty(bodyObj, "Name")?.ToString() ?? bodyObj?.ToString() ?? string.Empty },
+                { "biome", ReadStringProperty(situation, "Biome") },
+                { "subBiome", ReadStringProperty(situation, "SubBiome") },
+                { "completedScience", completedScience },
+                { "totalScience", totalScience },
+                { "progress", progress },
+                { "isComplete", ReadBoolProperty(instance, "IsComplete") },
+                { "isUnlocked", ReadBoolProperty(instance, "IsUnlocked") },
+                { "isCollected", ReadBoolProperty(instance, "IsCollected") },
+                { "onboardScience", ReadFloatProperty(instance, "OnboardScience") },
+                { "rerunnable", ReadBoolProperty(instance, "Rerunnable") }
+            };
         }
 
         private static object ReadProperty(object target, string propertyName)
@@ -781,18 +752,5 @@ namespace TelemachusTelemetryExtended
             return 0f;
         }
 
-        private static string Escape(string value)
-        {
-            if (string.IsNullOrEmpty(value))
-            {
-                return string.Empty;
-            }
-
-            return value
-                .Replace("\\", "\\\\")
-                .Replace("\"", "\\\"")
-                .Replace("\r", "\\r")
-                .Replace("\n", "\\n");
-        }
     }
 }
