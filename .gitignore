@@ -1,0 +1,6 @@
+Source/bin/
+release/
+*.user
+*.suo
+.vs/
+.vscode/

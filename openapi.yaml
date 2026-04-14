@@ -1,0 +1,369 @@
+openapi: 3.1.0
+info:
+  title: TelemachusTelemetryExtended API
+  version: 1.0.0
+  description: |
+    Logical API specification for TelemachusTelemetryExtended endpoints.
+
+    Runtime transport is Telemachus datalink (`/telemachus/datalink`) where values are requested
+    as query aliases (`alias=extended.*`) and most complex payloads are returned as JSON-encoded strings.
+    This spec documents decoded payload shapes per endpoint.
+servers:
+  - url: http://127.0.0.1:8085
+    description: Local Telemachus default server
+tags:
+  - name: Contracts
+  - name: Science
+paths:
+  /extended/contracts/acceptedCount:
+    get:
+      tags: [Contracts]
+      operationId: getAcceptedContractsCount
+      summary: Get accepted contracts count
+      x-telemachus-datalink:
+        key: extended.contracts.acceptedCount
+        exampleQuery: /telemachus/datalink?cAcceptedCount=extended.contracts.acceptedCount
+      responses:
+        '200':
+          description: Accepted contract count
+          content:
+            application/json:
+              schema:
+                type: integer
+                minimum: 0
+              example: 2
+
+  /extended/contracts/accepted:
+    get:
+      tags: [Contracts]
+      operationId: listAcceptedContracts
+      summary: Get accepted contracts
+      x-telemachus-datalink:
+        key: extended.contracts.accepted
+        exampleQuery: /telemachus/datalink?cAccepted=extended.contracts.accepted
+      responses:
+        '200':
+          description: Accepted contracts list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Contract'
+
+  /extended/contracts/accepted/{index}:
+    get:
+      tags: [Contracts]
+      operationId: getAcceptedContractByIndex
+      summary: Get accepted contract by index
+      x-telemachus-datalink:
+        key: extended.contracts.accepted[index]
+        exampleQuery: /telemachus/datalink?cAccepted0=extended.contracts.accepted[0]
+      parameters:
+        - $ref: '#/components/parameters/IndexPath'
+      responses:
+        '200':
+          description: Accepted contract
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contract'
+
+  /extended/contracts/byState:
+    get:
+      tags: [Contracts]
+      operationId: getContractsByState
+      summary: Get all current contracts grouped by state
+      x-telemachus-datalink:
+        key: extended.contracts.byState
+        exampleQuery: /telemachus/datalink?cByState=extended.contracts.byState
+      responses:
+        '200':
+          description: Contracts grouped by state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContractsByState'
+
+  /extended/science/current:
+    get:
+      tags: [Science]
+      operationId: getScienceCurrent
+      summary: Get current xScience filtered list
+      description: Mirrors `[x] Science!` current filtered checklist when available.
+      x-telemachus-datalink:
+        key: extended.science.current
+        exampleQuery: /telemachus/datalink?sCurrent=extended.science.current
+      responses:
+        '200':
+          description: Current science payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScienceListPayload'
+              example:
+                available: true
+                items:
+                  - id: crewReport@KerbinSrfLandedLaunchPad
+                    description: Crew Report while landed at Kerbin's LaunchPad (Shores)
+                    shortDescription: Crew Report
+                    experimentSituation: SrfLanded
+                    situationDescription: landed at Kerbin's LaunchPad (Shores)
+                    body: Kerbin
+                    biome: Shores
+                    subBiome: LaunchPad
+                    completedScience: 0
+                    totalScience: 1.5
+                    progress: 0
+                    isComplete: false
+                    isUnlocked: true
+                    isCollected: false
+                    onboardScience: 0
+                    rerunnable: true
+
+  /extended/science/global:
+    get:
+      tags: [Science]
+      operationId: getScienceGlobal
+      summary: Get full xScience global list
+      x-telemachus-datalink:
+        key: extended.science.global
+        exampleQuery: /telemachus/datalink?sGlobal=extended.science.global
+      responses:
+        '200':
+          description: Global science payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScienceListPayload'
+
+  /extended/science/summary:
+    get:
+      tags: [Science]
+      operationId: getScienceSummary
+      summary: Get xScience aggregate summary
+      x-telemachus-datalink:
+        key: extended.science.summary
+        exampleQuery: /telemachus/datalink?sSummary=extended.science.summary
+      responses:
+        '200':
+          description: Science summary payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScienceSummary'
+              example:
+                available: true
+                globalCount: 2529
+                globalComplete: 0
+                currentCount: 2
+                currentComplete: 0
+                globalProgress: 0
+                currentProgress: 0
+
+components:
+  parameters:
+    IndexPath:
+      name: index
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 0
+      description: Zero-based index.
+
+  schemas:
+    ContractParameter:
+      type: object
+      required: [id, title, notes, state, optional]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        notes:
+          type: string
+        state:
+          type: string
+        optional:
+          type: boolean
+
+    Contract:
+      type: object
+      required:
+        - id
+        - guid
+        - title
+        - synopsys
+        - notes
+        - state
+        - localizedState
+        - prestige
+        - dateAccepted
+        - dateDeadline
+        - parameters
+      properties:
+        id:
+          type: integer
+          format: int64
+        guid:
+          type: string
+        title:
+          type: string
+        synopsys:
+          type: string
+        notes:
+          type: string
+        state:
+          type: string
+        localizedState:
+          type: string
+        prestige:
+          type: string
+        dateAccepted:
+          type: number
+        dateDeadline:
+          type: number
+        parameters:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContractParameter'
+
+    ContractsByState:
+      type: object
+      required:
+        - generated
+        - offered
+        - offerExpired
+        - declined
+        - cancelled
+        - active
+        - completed
+        - deadlineExpired
+        - failed
+        - withdrawn
+        - other
+      properties:
+        generated:
+          type: array
+          items: { $ref: '#/components/schemas/Contract' }
+        offered:
+          type: array
+          items: { $ref: '#/components/schemas/Contract' }
+        offerExpired:
+          type: array
+          items: { $ref: '#/components/schemas/Contract' }
+        declined:
+          type: array
+          items: { $ref: '#/components/schemas/Contract' }
+        cancelled:
+          type: array
+          items: { $ref: '#/components/schemas/Contract' }
+        active:
+          type: array
+          items: { $ref: '#/components/schemas/Contract' }
+        completed:
+          type: array
+          items: { $ref: '#/components/schemas/Contract' }
+        deadlineExpired:
+          type: array
+          items: { $ref: '#/components/schemas/Contract' }
+        failed:
+          type: array
+          items: { $ref: '#/components/schemas/Contract' }
+        withdrawn:
+          type: array
+          items: { $ref: '#/components/schemas/Contract' }
+        other:
+          type: array
+          items: { $ref: '#/components/schemas/Contract' }
+
+    ScienceItem:
+      type: object
+      required:
+        - id
+        - description
+        - shortDescription
+        - experimentSituation
+        - situationDescription
+        - body
+        - biome
+        - subBiome
+        - completedScience
+        - totalScience
+        - progress
+        - isComplete
+        - isUnlocked
+        - isCollected
+        - onboardScience
+        - rerunnable
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+        shortDescription:
+          type: string
+        experimentSituation:
+          type: string
+        situationDescription:
+          type: string
+        body:
+          type: string
+        biome:
+          type: string
+        subBiome:
+          type: string
+        completedScience:
+          type: number
+        totalScience:
+          type: number
+        progress:
+          type: number
+        isComplete:
+          type: boolean
+        isUnlocked:
+          type: boolean
+        isCollected:
+          type: boolean
+        onboardScience:
+          type: number
+        rerunnable:
+          type: boolean
+
+    ScienceListPayload:
+      type: object
+      required: [available, items]
+      properties:
+        available:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScienceItem'
+
+    ScienceSummary:
+      type: object
+      required:
+        - available
+        - globalCount
+        - globalComplete
+        - currentCount
+        - currentComplete
+        - globalProgress
+        - currentProgress
+      properties:
+        available:
+          type: boolean
+        globalCount:
+          type: integer
+        globalComplete:
+          type: integer
+        currentCount:
+          type: integer
+        currentComplete:
+          type: integer
+        globalProgress:
+          type: number
+        currentProgress:
+          type: number
