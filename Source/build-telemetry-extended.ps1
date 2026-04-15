@@ -34,10 +34,15 @@ if ([string]::IsNullOrWhiteSpace($KspRoot) -or -not (Test-KspRoot $KspRoot)) {
     throw "Could not find a valid KSP root. Pass -KspRoot '<path>' or set KSP_ROOT env var."
 }
 
-$source = Join-Path $KspRoot "PluginData\TelemachusTelemetryExtended\Source\TelemachusTelemetryExtended.cs"
+$sources = Get-ChildItem -Path $PSScriptRoot -Filter "*.cs" -File |
+    Sort-Object Name |
+    Select-Object -ExpandProperty FullName
+if (-not $sources -or $sources.Count -eq 0) {
+    throw "No C# source files found under $PSScriptRoot"
+}
 $outputDir = Join-Path $KspRoot "GameData\TelemachusTelemetryExtended\Plugins"
 $output = Join-Path $outputDir "TelemachusTelemetryExtended.dll"
-$stagingDir = Join-Path $KspRoot "PluginData\TelemachusTelemetryExtended\Source\bin"
+$stagingDir = Join-Path $PSScriptRoot "bin"
 $stagingOutput = Join-Path $stagingDir "TelemachusTelemetryExtended.dll"
 
 if (-not (Test-Path $outputDir)) {
@@ -84,7 +89,7 @@ $refArg = "/reference:" + ($refs -join ",")
     /langversion:latest `
     /out:$stagingOutput `
     $refArg `
-    $source
+    $sources
 
 if ($LASTEXITCODE -ne 0) {
     throw "Compiler failed with exit code $LASTEXITCODE"

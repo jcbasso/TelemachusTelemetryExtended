@@ -4,15 +4,13 @@ Custom Telemachus plugin that adds contracts telemetry and `[x] Science!` teleme
 
 ## Scene support
 
-- Telemachus plugin variables are evaluable in **Flight** scene.
-- Querying these keys in VAB/SPH/tracking scenes will return Telemachus "not evaluable outside flight" errors.
+- Flight-scoped keys are evaluable only in **Flight** scene.
+- Global-scoped keys are evaluable outside flight scenes when Telemachus global plugin scope support is present.
 
 ## Exported API keys
 
 ### Extended contracts
 
-- `extended.contracts.acceptedCount`  
-  Number of accepted contracts.
 - `extended.contracts.accepted`  
   Full accepted-contract list as a JSON array, or a single item when called as `extended.contracts.accepted[index]` (returned as a direct object/array in Telemachus datalink).
 - `extended.contracts.byState`  
@@ -24,9 +22,30 @@ Custom Telemachus plugin that adds contracts telemetry and `[x] Science!` teleme
 - `extended.science.current`  
   Current filtered science list (based on `[x] Science!` checklist filter/window state when available, returned as a direct object in Telemachus datalink).
 - `extended.science.global`  
-  Full global science list from `[x] Science!` (`AllScienceInstances`, returned as a direct object in Telemachus datalink).
-- `extended.science.summary`  
-  Quick counts/progress for current/global lists (returned as a direct object in Telemachus datalink).
+  Full global science list from `[x] Science!` (`AllScienceInstances`, returned as a direct object in Telemachus datalink). Registered via global plugin scope.
+
+### Extended plugin integration
+
+- `extended.plugins.registered`  
+  Only plugins registered in Telemachus plugin registry (internal + external plugin API registrations).
+- `extended.plugins.loaded`  
+  Full loaded assembly list from KSP runtime (for debugging).
+
+### Extended vessels integration
+
+- `extended.vessels.orbits`  
+  Full orbit dataset for all loaded vessels, including GUIDO-ready orbital elements and body metadata. Registered via global plugin scope.
+
+Flight-scoped keys are:
+- `extended.contracts.accepted`
+- `extended.contracts.byState`
+- `extended.science.current`
+
+Global-scoped keys are:
+- `extended.science.global`
+- `extended.plugins.registered`
+- `extended.plugins.loaded`
+- `extended.vessels.orbits`
 
 Each accepted contract entry includes:
 - Contract identity and labels (`id`, `guid`, `title`, `synopsys`, `notes`)
@@ -41,7 +60,9 @@ http://127.0.0.1:8085/telemachus/datalink?c0=extended.contracts.accepted[0]
 http://127.0.0.1:8085/telemachus/datalink?byState=extended.contracts.byState
 http://127.0.0.1:8085/telemachus/datalink?sCurrent=extended.science.current
 http://127.0.0.1:8085/telemachus/datalink?sGlobal=extended.science.global
-http://127.0.0.1:8085/telemachus/datalink?sSummary=extended.science.summary
+http://127.0.0.1:8085/telemachus/datalink?plugins=extended.plugins.registered
+http://127.0.0.1:8085/telemachus/datalink?loaded=extended.plugins.loaded
+http://127.0.0.1:8085/telemachus/datalink?vessels=extended.vessels.orbits
 ```
 
 ## Response structure (important)
@@ -76,15 +97,25 @@ curl -s "http://127.0.0.1:8085/telemachus/datalink?sCurrent=extended.science.cur
   - inner object:
     - `available` (bool)
     - `items[]` with `id`, `description`, `shortDescription`, `experimentSituation`, `situationDescription`, `body`, `biome`, `subBiome`, `completedScience`, `totalScience`, `progress`, `isComplete`, `isUnlocked`, `isCollected`, `onboardScience`, `rerunnable`
-- `extended.science.summary`:
+- `extended.plugins.registered`:
+  - inner array with:
+    - `typeName`, `assembly`, `assemblyVersion`, `origin` (`internal`/`external`), `commands[]`
+- `extended.plugins.loaded`:
+  - inner array with:
+    - `name`, `version`, `fullName`, `location`
+- `extended.vessels.orbits`:
   - inner object:
-    - `available`, `globalCount`, `globalComplete`, `currentCount`, `currentComplete`, `globalProgress`, `currentProgress`
+    - `available`, `ut`
+    - `vessels[]` with:
+      - `id`, `name`, `type`, `situation`, `isActive`, `isTarget`
+      - `body`, `bodyRadius`, `latitude`, `longitude`, `altitude`
+      - `orbit` (`sma`, `eccentricity`, `inclination`, `lan`, `argumentOfPeriapsis`, `trueAnomaly`, `meanAnomalyAtEpoch`, `epoch`, `period`, `ApA`, `PeA`)
 
 ## Swagger / OpenAPI
 
 Complete OpenAPI spec is available at:
 
-- `PluginData\TelemachusTelemetryExtended\openapi.yaml`
+- `openapi.yaml`
 
 The spec documents **decoded logical endpoints** (`/extended/...`) and includes per-endpoint mapping metadata to raw Telemachus datalink keys (`x-telemachus-datalink`).
 
@@ -100,22 +131,24 @@ For each alias key you standardize (for example `sCurrent`), define the property
 
 During documentation update, these endpoints were queried successfully in a live game session:
 
-- `extended.contracts.acceptedCount`
 - `extended.contracts.accepted`
 - `extended.contracts.accepted[0]`
 - `extended.contracts.byState`
 - `extended.science.current`
 - `extended.science.global`
-- `extended.science.summary`
+- `extended.plugins.registered`
+- `extended.plugins.loaded`
+- `extended.vessels.orbits`
 
 Latest runtime check confirms direct datalink value types:
 
-- `extended.contracts.acceptedCount` -> number
 - `extended.contracts.accepted` -> array
 - `extended.contracts.byState` -> object
 - `extended.science.current` -> object
 - `extended.science.global` -> object
-- `extended.science.summary` -> object
+- `extended.plugins.registered` -> array
+- `extended.plugins.loaded` -> array
+- `extended.vessels.orbits` -> object
 
 ## Build
 
@@ -154,14 +187,14 @@ Advanced (direct source script):
 Run:
 
 ```
-PluginData\TelemachusTelemetryExtended\Source\build-telemetry-extended.ps1
+.\Source\build-telemetry-extended.ps1
 ```
 
 Optional parameters:
 
 ```
-PluginData\TelemachusTelemetryExtended\Source\build-telemetry-extended.ps1 -KspRoot "D:\Games\steamapps\common\Kerbal Space Program"
-PluginData\TelemachusTelemetryExtended\Source\build-telemetry-extended.ps1 -NoDeploy
+.\Source\build-telemetry-extended.ps1 -KspRoot "D:\Games\steamapps\common\Kerbal Space Program"
+.\Source\build-telemetry-extended.ps1 -NoDeploy
 ```
 
 ## Release packaging
@@ -169,7 +202,7 @@ PluginData\TelemachusTelemetryExtended\Source\build-telemetry-extended.ps1 -NoDe
 To build and prepare a distributable mod folder under `release\TelemachusTelemetryExtended`:
 
 ```
-PluginData\TelemachusTelemetryExtended\Source\package-release.ps1
+.\Source\package-release.ps1
 ```
 
 Output structure:
@@ -183,7 +216,7 @@ release\TelemachusTelemetryExtended\
 
 ## Git-ready notes
 
-- Recommended repository root: `PluginData\TelemachusTelemetryExtended`
+- Recommended repository root: `_dev\TelemachusTelemetryExtended`
 - Build artifacts are ignored via `.gitignore` (`release\`, editor files).  
   Only `Source\bin\TelemachusTelemetryExtended.dll` is intentionally tracked for release packaging.
 
@@ -219,4 +252,4 @@ git push origin main --tags
 
 If KSP is running and the output DLL is locked, the script writes a staging build to:
 
-`PluginData\TelemachusTelemetryExtended\Source\bin\TelemachusTelemetryExtended.dll`
+`Source\bin\TelemachusTelemetryExtended.dll`

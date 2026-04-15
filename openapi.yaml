@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: TelemachusTelemetryExtended API
-  version: 1.1.0
+  version: 1.2.0
   description: |
     Logical API specification for TelemachusTelemetryExtended endpoints.
 
@@ -14,25 +14,9 @@ servers:
 tags:
   - name: Contracts
   - name: Science
+  - name: Plugins
+  - name: Vessels
 paths:
-  /extended/contracts/acceptedCount:
-    get:
-      tags: [Contracts]
-      operationId: getAcceptedContractsCount
-      summary: Get accepted contracts count
-      x-telemachus-datalink:
-        key: extended.contracts.acceptedCount
-        exampleQuery: /telemachus/datalink?cAcceptedCount=extended.contracts.acceptedCount
-      responses:
-        '200':
-          description: Accepted contract count
-          content:
-            application/json:
-              schema:
-                type: integer
-                minimum: 0
-              example: 2
-
   /extended/contracts/accepted:
     get:
       tags: [Contracts]
@@ -126,6 +110,7 @@ paths:
       tags: [Science]
       operationId: getScienceGlobal
       summary: Get full xScience global list
+      description: Registered through Telemachus global plugin scope, so it can be queried outside flight scenes.
       x-telemachus-datalink:
         key: extended.science.global
         exampleQuery: /telemachus/datalink?sGlobal=extended.science.global
@@ -137,29 +122,58 @@ paths:
               schema:
                 $ref: '#/components/schemas/ScienceListPayload'
 
-  /extended/science/summary:
+  /extended/plugins/registered:
     get:
-      tags: [Science]
-      operationId: getScienceSummary
-      summary: Get xScience aggregate summary
+      tags: [Plugins]
+      operationId: getRegisteredPlugins
+      summary: Get plugins registered in Telemachus plugin registry
       x-telemachus-datalink:
-        key: extended.science.summary
-        exampleQuery: /telemachus/datalink?sSummary=extended.science.summary
+        key: extended.plugins.registered
+        exampleQuery: /telemachus/datalink?plugins=extended.plugins.registered
       responses:
         '200':
-          description: Science summary payload
+          description: Registered Telemachus plugin list
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ScienceSummary'
-              example:
-                available: true
-                globalCount: 2529
-                globalComplete: 0
-                currentCount: 2
-                currentComplete: 0
-                globalProgress: 0
-                currentProgress: 0
+                type: array
+                items:
+                  $ref: '#/components/schemas/RegisteredPlugin'
+
+  /extended/plugins/loaded:
+    get:
+      tags: [Plugins]
+      operationId: getLoadedPluginAssemblies
+      summary: Get all loaded assemblies from KSP runtime
+      x-telemachus-datalink:
+        key: extended.plugins.loaded
+        exampleQuery: /telemachus/datalink?loaded=extended.plugins.loaded
+      responses:
+        '200':
+          description: Loaded assemblies list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LoadedAssembly'
+
+  /extended/vessels/orbits:
+    get:
+      tags: [Vessels]
+      operationId: getVesselsOrbits
+      summary: Get all vessels orbit dataset
+      description: Global-scoped endpoint for client-side multi-vessel orbital rendering.
+      x-telemachus-datalink:
+        key: extended.vessels.orbits
+        exampleQuery: /telemachus/datalink?vessels=extended.vessels.orbits
+      responses:
+        '200':
+          description: All-vessels orbit payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VesselsOrbitsPayload'
 
 components:
   parameters:
@@ -173,6 +187,37 @@ components:
       description: Zero-based index.
 
   schemas:
+    RegisteredPlugin:
+      type: object
+      required: [typeName, assembly, assemblyVersion, origin, commands]
+      properties:
+        typeName:
+          type: string
+        assembly:
+          type: string
+        assemblyVersion:
+          type: string
+        origin:
+          type: string
+          enum: [internal, external]
+        commands:
+          type: array
+          items:
+            type: string
+
+    LoadedAssembly:
+      type: object
+      required: [name, version, fullName, location]
+      properties:
+        name:
+          type: string
+        version:
+          type: string
+        fullName:
+          type: string
+        location:
+          type: string
+
     ContractParameter:
       type: object
       required: [id, title, notes, state, optional]
@@ -342,28 +387,98 @@ components:
           items:
             $ref: '#/components/schemas/ScienceItem'
 
-    ScienceSummary:
+    VesselOrbit:
+      type: object
+      required:
+        - sma
+        - eccentricity
+        - inclination
+        - lan
+        - argumentOfPeriapsis
+        - trueAnomaly
+        - meanAnomalyAtEpoch
+        - epoch
+        - period
+        - ApA
+        - PeA
+      properties:
+        sma:
+          type: number
+        eccentricity:
+          type: number
+        inclination:
+          type: number
+        lan:
+          type: number
+        argumentOfPeriapsis:
+          type: number
+        trueAnomaly:
+          type: number
+        meanAnomalyAtEpoch:
+          type: number
+        epoch:
+          type: number
+        period:
+          type: number
+        ApA:
+          type: number
+        PeA:
+          type: number
+
+    VesselOrbitItem:
+      type: object
+      required:
+        - id
+        - name
+        - type
+        - situation
+        - isActive
+        - isTarget
+        - body
+        - bodyRadius
+        - latitude
+        - longitude
+        - altitude
+        - orbit
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        situation:
+          type: string
+        isActive:
+          type: boolean
+        isTarget:
+          type: boolean
+        body:
+          type: string
+        bodyRadius:
+          type: number
+        latitude:
+          type: number
+        longitude:
+          type: number
+        altitude:
+          type: number
+        orbit:
+          $ref: '#/components/schemas/VesselOrbit'
+
+    VesselsOrbitsPayload:
       type: object
       required:
         - available
-        - globalCount
-        - globalComplete
-        - currentCount
-        - currentComplete
-        - globalProgress
-        - currentProgress
+        - ut
+        - vessels
       properties:
         available:
           type: boolean
-        globalCount:
-          type: integer
-        globalComplete:
-          type: integer
-        currentCount:
-          type: integer
-        currentComplete:
-          type: integer
-        globalProgress:
+        ut:
           type: number
-        currentProgress:
-          type: number
+        vessels:
+          type: array
+          items:
+            $ref: '#/components/schemas/VesselOrbitItem'
+
